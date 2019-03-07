@@ -1,0 +1,3 @@
+[submodule "Kinetic_POV"]
+	path = Kinetic_POV
+	url = https://github.com/adafruit/Kinetic_POV
