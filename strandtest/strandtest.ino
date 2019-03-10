@@ -26,7 +26,9 @@
 // (Arduino Uno = pin 11 for data, 13 for clock, other boards are different).
 Adafruit_DotStar strip = Adafruit_DotStar(NUMPIXELS, DOTSTAR_BRG);
 
+
 void setup() {
+
 
 #if defined(__AVR_ATtiny85__) && (F_CPU == 16000000L)
   clock_prescale_set(clock_div_1); // Enable 16 MHz on Trinket

@@ -3,8 +3,8 @@
 // Connect 5V and GND
 // Signal to digital pin 2
 
-int hallSensorPin = 2;
-int ledPin = 13;
+int hallSensorPin = 9;
+int ledPin = 7;
 int state = 0;
 
 void setup() {
@@ -12,12 +12,12 @@ void setup() {
   pinMode(hallSensorPin, INPUT);
 }
 
-int loop() {
+void loop() {
   state = digitalRead(hallSensorPin);
   if (state == LOW) {
-    digitalWrite(ledPin, HIGH);
+    digitalWrite(ledPin, LOW);
   }
   else {
-    digitalWrite(ledPin, LOW);
+    digitalWrite(ledPin, HIGH);
   }
 }
