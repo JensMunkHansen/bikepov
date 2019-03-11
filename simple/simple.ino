@@ -1,3 +1,5 @@
+/*  -*- coding: utf-8; mode: c; indent-tabs-mode: nil -*- */
+
 /*------------------------------------------------------------------------
   POV LED bike wheel sketch.  Uses the following Adafruit parts:
 
@@ -74,16 +76,9 @@ Adafruit_DotStar strip = Adafruit_DotStar(NUM_LEDS, DOTSTAR_BGR);
 
 void     imageInit(void);
 uint16_t readVoltage(void);
-#ifdef MOTION_PIN
-void     sleep(void);
-#endif
 
 void setup() {
 
-#ifdef POWER_PIN
-  pinMode(POWER_PIN, OUTPUT);
-  digitalWrite(POWER_PIN, LOW); // Power-on LED strip
-#endif
   strip.begin();                // Allocate DotStar buffer, init SPI
   strip.clear();                // Make sure strip is clear
   strip.show();                 // before measuring battery
@@ -110,18 +105,11 @@ void setup() {
 #ifdef SELECT_PIN
   pinMode(SELECT_PIN, INPUT_PULLUP);
 #endif
-#ifdef MOTION_PIN
-  pinMode(MOTION_PIN, INPUT_PULLUP);
-  sleep();     // Sleep until motion detected
-#endif
 }
 
 // GLOBAL STATE STUFF ------------------------------------------------------
 
 uint32_t lastImageTime = 0L; // Time of last image change
-#ifdef MOTION_PIN
-uint32_t prev          = 0L; // Used for sleep timing
-#endif
 uint8_t  imageNumber   = 0,  // Current image being displayed
          imageType,          // Image type: PALETTE[1,4,8] or TRUECOLOR
         *imagePalette,       // -> palette data in PROGMEM
@@ -158,15 +146,6 @@ void nextImage(void) {
 
 void loop() {
   uint32_t t = millis();               // Current time, milliseconds
-#ifdef MOTION_PIN
-  // Tried to do this with watchdog timer but encountered gas pains, so...
-  if(!digitalRead(MOTION_PIN)) {       // Vibration switch pulled down?
-    prev = t;                          // Yes, reset timer
-  } else if((t - prev) > SLEEP_TIME) { // No, SLEEP_TIME elapsed w/no switch?
-    sleep();                           // Power down
-    prev = t;                          // Reset timer on wake
-  }
-#endif
 
   if(autoCycle) {
     if((t - lastImageTime) >= (CYCLE_TIME * 1000L)) nextImage();
@@ -254,84 +233,12 @@ void loop() {
     }
   }
 
-  strip.show(); // Refresh LEDs
-#if !defined(LED_DATA_PIN) && !defined(LED_CLOCK_PIN)
+  strip.show();            // Refresh LEDs
   delayMicroseconds(900);  // Because hardware SPI is ludicrously fast
-#endif
-  if(++imageLine >= imageLines) imageLine = 0; // Next scanline, wrap around
-}
-
-// POWER-SAVING STUFF -- Relentlessly non-portable -------------------------
-
-#ifdef MOTION_PIN
-void sleep() {
-
-  // Turn off LEDs...
-  strip.clear();                 // Issue '0' data
-  strip.show();
-#ifdef POWER_PIN
-  digitalWrite(POWER_PIN, HIGH); // Cut power
-#if !defined(LED_DATA_PIN) && !defined(LED_CLOCK_PIN)
-  pinMode(11, INPUT);
-  pinMode(13, INPUT);
-#endif // Data/clock/pins
-#endif // POWER_PIN
-
-  power_all_disable(); // Peripherals ALL OFF, best sleep-state battery use
-
-  // Enable pin-change interrupt on motion pin
-  volatile uint8_t *p = portInputRegister(digitalPinToPort(MOTION_PIN));
-  if(p == &PIND) {          // Pins 0-7 = PCINT16-23
-    PCMSK2 = _BV(MOTION_PIN);
-    PCICR  = _BV(PCIE2);
-  } else if(p == &PINB) {   // Pins 8-13 = PCINT0-5
-    PCMSK0 = _BV(MOTION_PIN- 8);
-    PCICR  = _BV(PCIE0);
-  } else if(p == &PINC) {   // Pins 14-20 = PCINT8-14
-    PCMSK1 = _BV(MOTION_PIN-14);
-    PCICR  = _BV(PCIE1);
+  if(++imageLine >= imageLines) {
+    imageLine = 0; // Next scanline, wrap around
   }
-
-  // If select pin is enabled, that wakes too!
-#ifdef SELECT_PIN
-  debounce = 0;
-  volatile uint8_t *p = portInputRegister(digitalPinToPort(SELECT_PIN));
-  if(p == &PIND) {        // Pins 0-7 = PCINT16-23
-    PCMSK2 = _BV(SELECT_PIN);
-    PCICR  = _BV(PCIE2);
-  } else if(p == &PINB) { // Pins 8-13 = PCINT0-5
-    PCMSK0 = _BV(SELECT_PIN- 8);
-    PCICR  = _BV(PCIE0);
-  } else if(p == &PINC) { // Pins 14-20 = PCINT8-14
-    PCMSK1 = _BV(SELECT_PIN-14);
-    PCICR  = _BV(PCIE1);
-  }
-#endif // SELECT_PIN
-
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // Deepest sleep mode
-  sleep_enable();
-  interrupts();
-  sleep_mode();                        // Power down
-
-  // Resumes here on wake
-
-  // Clear pin change settings so interrupt won't fire again
-  PCICR = PCMSK0 = PCMSK1 = PCMSK2 = 0;
-  power_timer0_enable();        // Used by millis()
-#if !defined(LED_DATA_PIN) && !defined(LED_CLOCK_PIN)
-  pinMode(11, OUTPUT);          // Re-enable SPI pins
-  pinMode(13, OUTPUT);
-  power_spi_enable();           // Used by DotStar
-#endif // Data/clock pins
-#ifdef POWER_PIN
-  digitalWrite(POWER_PIN, LOW); // Power-up LEDs
-#endif
-  prev = millis();              // Save wake time
 }
-
-EMPTY_INTERRUPT(PCINT0_vect); // Pin change (does nothing, but required)
-
-#endif // MOTION_PIN
 
 // Battery monitoring idea adapted from JeeLabs article:
 // jeelabs.org/2012/05/04/measuring-vcc-via-the-bandgap/
