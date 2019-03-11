@@ -1,0 +1,5 @@
+# Hex files
+*.hex
+
+# OS generated files
+*~
