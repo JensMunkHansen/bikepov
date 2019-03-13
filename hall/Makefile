@@ -1,26 +1,13 @@
-MCU = atmega328p
-F_CPU = 16000000
-CC = avr-gcc
-CFLAGS= -O2 -Wall -std=gnu11 -mmcu=$(MCU)
-CPPFLAGS=-DF_CPU=$(F_CPU)L -I/usr/share/arduino/hardware/arduino/cores/arduino -I/usr/share/arduino/hardware/arduino/variants/standard
-OBJCOPY=avr-objcopy
+PROJECT_DIR   = $(shell pwd)
+ARDUINO_DIR   = /usr/share/arduino
+ARDMK_DIR     = /usr/share/arduino
+AVR_TOOLS_DIR = /usr
 
-CMD_FLASH=avrdude
-MCU1 = ATMEGA328P
-DEVPORT = /dev/ttyUSB0
-BAUDRATE=57600
+#ARDUINO_LIBS = SPI Adafruit_DotStar
+MONITOR_PORT = /dev/ttyUSB0
+BOARD_TAG = pro5v328
+AVRDUDE_CONF=/etc/avrdude.conf
 
-FNAME = hall
+#USER_LIB_PATH := $(realpath $(PROJECT_DIR)/..)
 
-.PHONY: default
-default : EXE_FILE HEX_FILE flash
-
-EXE_FILE: $(FNAME).c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< -o $(FNAME)
-HEX_FILE: $(FNAME)
-	$(OBJCOPY) -O ihex $< $(FNAME).hex
-flash : $(FNAME).hex
-	$(CMD_FLASH) -F -V -c arduino -p $(MCU1) -P $(DEVPORT) -b $(BAUDRATE) -U $@:w:$<
-clean:
-	rm $(FNAME).hex $(FNAME)
-# avrdude.conf -v -v -v -v -patmega328p -carduino -P/dev/ttyUSB0 -b57600 -D -Uflash:w:/tmp/build1674805407551196116.tmp/Blink2.cpp.hex:i
+include  /usr/share/arduino/Arduino.mk
