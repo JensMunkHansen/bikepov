@@ -6962,14 +6962,14 @@ typedef struct {
 } image;
 
 const image PROGMEM images[] = {
-//  { PALETTE8 ,  255, (const uint8_t *)palette00, pixels00 }, // Amiga ball
+  { PALETTE8 ,  255, (const uint8_t *)palette00, pixels00 }, // Amiga ball
   { PALETTE4 ,   64, (const uint8_t *)palette01, pixels01 }, // Color bars
-  { PALETTE8 ,  128, (const uint8_t *)palette02, pixels02 }, // Flower 1
+  //  { PALETTE8 ,  128, (const uint8_t *)palette02, pixels02 }, // Flower 1
 //  { PALETTE8 ,  128, (const uint8_t *)palette03, pixels03 }, // Flower 2
-  { PALETTE8 ,  220, (const uint8_t *)palette04, pixels04 }, // Fractal
-  { PALETTE8 ,  255, (const uint8_t *)palette05, pixels05 }, // Sparkles
-// { PALETTE8 ,  128, (const uint8_t *)palette06, pixels06 }, // Dragon
-//  { PALETTE8 ,  128, (const uint8_t *)palette07, pixels07 }  // Wave
+  //  { PALETTE8 ,  220, (const uint8_t *)palette04, pixels04 }, // Fractal
+  //  { PALETTE8 ,  255, (const uint8_t *)palette05, pixels05 }, // Sparkles
+  { PALETTE8 ,  128, (const uint8_t *)palette06, pixels06 }, // Dragon
+  { PALETTE8 ,  128, (const uint8_t *)palette07, pixels07 }  // Wave
 };
 
 #define NUM_IMAGES (sizeof(images) / sizeof(images[0]))

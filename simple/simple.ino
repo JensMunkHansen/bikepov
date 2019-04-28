@@ -56,14 +56,14 @@ typedef uint16_t line_t;
 
 // Select from multiple images using tactile button (#1489) between pin and
 // ground.  Requires suitably-built graphics.h file w/more than one image.
-#define SELECT_PIN 3
+// #define SELECT_PIN 3
 
 
 #define SLEEP_TIME 2000   // Not-spinning time before sleep, in milliseconds
 
 // Empty and full thresholds (millivolts) used for battery level display:
 #define BATT_MIN_MV 3350  // Some headroom over battery cutoff near 2.9V
-#define BATT_MAX_MV 4000  // And little below fresh-charged battery near 4.1V
+#define BATT_MAX_MV 4500  // And little below fresh-charged battery near 4.1V
 // These figures are based on LiPoly cell and will need to be tweaked for
 // 3X NiMH or alkaline batteries!
 
@@ -235,6 +235,7 @@ void loop() {
 
   strip.show();            // Refresh LEDs
   delayMicroseconds(900);  // Because hardware SPI is ludicrously fast
+  delay(4);
   if(++imageLine >= imageLines) {
     imageLine = 0; // Next scanline, wrap around
   }
