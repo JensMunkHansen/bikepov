@@ -16,11 +16,8 @@ void bla() {
   // It is very unlikely that we hit micros() == 0 (after 71 min)
   unsigned long cur = micros();
   unsigned long diff;
-  if (cur > prev) {
-    diff = cur - prev;
-  } else {
-    diff = cur + ( (1 << 32) - prev);
-  }
+  diff = cur - prev;
+
   if ( (diff > 120000) && (diff < 1800000)) {
     // Time to sleep - round up every other time
     // minimum lines is 64, 1800000 / 64 < 2^15
