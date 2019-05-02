@@ -14,7 +14,7 @@ typedef uint16_t line_t;
 
 volatile bool trigged = false;
 
-// #define DEBUG_TIME
+// #define DEBUG_TIME 1
 
 #define SLEEP_TIME 2000   // Not-spinning time before sleep, in milliseconds
 

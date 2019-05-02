@@ -30,7 +30,7 @@ void bla() {
 #endif
 
 // Connect 5V and GND
-// Signal to digital pin 2
+// Signal to digital pin 2 (number printed on board)
 
 int hallSensorPin = 2; // Digital pin 2 triggers interrupt 0 on pro5v328
 int ledPin = 7;
