@@ -12,7 +12,9 @@ typedef uint16_t line_t;
 
 #include "graphics.h"
 
-// TODO(JMH): Hall
+volatile bool trigged = false;
+
+// #define DEBUG_TIME
 
 #define SLEEP_TIME 2000   // Not-spinning time before sleep, in milliseconds
 
@@ -31,9 +33,17 @@ Adafruit_DotStar strip = Adafruit_DotStar(NUM_LEDS, DOTSTAR_BGR);
 
 void     imageInit(void);
 uint16_t readVoltage(void);
+void magnet_detect(void);
+
+#ifdef DEBUG_TIME
+bool first = true;
+uint8_t microSecondsElapsed = 0;
+#endif
 
 void setup() {
-
+#ifdef DEBUG_TIME
+  Serial.begin(9600);
+#endif
   strip.begin();                // Allocate DotStar buffer, init SPI
   strip.clear();                // Make sure strip is clear
   strip.show();                 // before measuring battery
@@ -57,6 +67,7 @@ void setup() {
 
   imageInit(); // Initialize pointers for default image
 
+  attachInterrupt(0, magnet_detect, RISING);
 }
 
 // GLOBAL STATE STUFF ------------------------------------------------------
@@ -105,91 +116,100 @@ void loop() {
     // Keep this in mind when using auto-cycle mode, you may want to cull
     // the image selection to avoid unintentional regrettable combinations.
   }
-#ifdef SELECT_PIN
-  if(digitalRead(SELECT_PIN)) {        // Image select?
-    debounce = 0;                      // Not pressed -- reset counter
-  } else {                             // Pressed...
-    if(++debounce >= 25) {             // Debounce input
-      nextImage();                     // Switch to next image
-      while(!digitalRead(SELECT_PIN)); // Wait for release
-      // If held 1+ sec, toggle auto-cycle mode on/off
-      if((millis() - t) >= 1000L) autoCycle = !autoCycle;
-      debounce = 0;
-    }
-  }
+
+  bool show = false;
+  noInterrupts();
+  show = trigged;
+  trigged = false;
+  interrupts();
+
+  if (show) {
+    show = false;
+    for (int iImage = 0 ; iImage < 4 ; iImage++) {
+    for (imageLine = 0 ; imageLine < imageLines ; imageLine++) {
+#ifdef DEBUG_TIME
+      if (first) {
+        microSecondsElapsed = micros();
+      }
 #endif
+      // Transfer one scanline from pixel data to LED strip:
 
-  // Transfer one scanline from pixel data to LED strip:
+      // If you're really pressed for graphics space and need just a few extra
+      // scanlines, and know for a fact you won't be using certain image modes,
+      // you can comment out the corresponding blocks below.  e.g. PALETTE8 and
+      // TRUECOLOR are somewhat impractical on Trinket, and commenting them out
+      // can free up nearly 200 bytes of extra image storage.
 
-  // If you're really pressed for graphics space and need just a few extra
-  // scanlines, and know for a fact you won't be using certain image modes,
-  // you can comment out the corresponding blocks below.  e.g. PALETTE8 and
-  // TRUECOLOR are somewhat impractical on Trinket, and commenting them out
-  // can free up nearly 200 bytes of extra image storage.
+      switch(imageType) {
 
-  switch(imageType) {
+        case PALETTE1: { // 1-bit (2 color) palette-based image
+          uint8_t  pixelNum = 0, byteNum, bitNum, pixels, idx,
+                  *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 8];
+          for(byteNum = NUM_LEDS/8; byteNum--; ) { // Always padded to next byte
+            pixels = pgm_read_byte(ptr++);  // 8 pixels of data (pixel 0 = LSB)
+            for(bitNum = 8; bitNum--; pixels >>= 1) {
+              idx = pixels & 1; // Color table index for pixel (0 or 1)
+              strip.setPixelColor(pixelNum++,
+                palette[idx][0], palette[idx][1], palette[idx][2]);
+            }
+          }
+          break;
+        }
 
-    case PALETTE1: { // 1-bit (2 color) palette-based image
-      uint8_t  pixelNum = 0, byteNum, bitNum, pixels, idx,
-              *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 8];
-      for(byteNum = NUM_LEDS/8; byteNum--; ) { // Always padded to next byte
-        pixels = pgm_read_byte(ptr++);  // 8 pixels of data (pixel 0 = LSB)
-        for(bitNum = 8; bitNum--; pixels >>= 1) {
-          idx = pixels & 1; // Color table index for pixel (0 or 1)
-          strip.setPixelColor(pixelNum++,
-            palette[idx][0], palette[idx][1], palette[idx][2]);
+        case PALETTE4: { // 4-bit (16 color) palette-based image
+          uint8_t  pixelNum, p1, p2,
+                  *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 2];
+          for(pixelNum = 0; pixelNum < NUM_LEDS; ) {
+            p2  = pgm_read_byte(ptr++); // Data for two pixels...
+            p1  = p2 >> 4;              // Shift down 4 bits for first pixel
+            p2 &= 0x0F;                 // Mask out low 4 bits for second pixel
+            strip.setPixelColor(pixelNum++,
+              palette[p1][0], palette[p1][1], palette[p1][2]);
+            strip.setPixelColor(pixelNum++,
+              palette[p2][0], palette[p2][1], palette[p2][2]);
+          }
+          break;
+        }
+
+        case PALETTE8: { // 8-bit (256 color) PROGMEM-palette-based image
+          uint16_t  o;
+          uint8_t   pixelNum,
+                   *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS];
+          for(pixelNum = 0; pixelNum < NUM_LEDS; pixelNum++) {
+            o = pgm_read_byte(ptr++) * 3; // Offset into imagePalette
+            strip.setPixelColor(pixelNum,
+              pgm_read_byte(&imagePalette[o]),
+              pgm_read_byte(&imagePalette[o + 1]),
+              pgm_read_byte(&imagePalette[o + 2]));
+          }
+          break;
+        }
+
+        case TRUECOLOR: { // 24-bit ('truecolor') image (no palette)
+          uint8_t  pixelNum, r, g, b,
+                  *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS * 3];
+          for(pixelNum = 0; pixelNum < NUM_LEDS; pixelNum++) {
+            r = pgm_read_byte(ptr++);
+            g = pgm_read_byte(ptr++);
+            b = pgm_read_byte(ptr++);
+            strip.setPixelColor(pixelNum, r, g, b);
+          }
+          break;
         }
       }
-      break;
-    }
 
-    case PALETTE4: { // 4-bit (16 color) palette-based image
-      uint8_t  pixelNum, p1, p2,
-              *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 2];
-      for(pixelNum = 0; pixelNum < NUM_LEDS; ) {
-        p2  = pgm_read_byte(ptr++); // Data for two pixels...
-        p1  = p2 >> 4;              // Shift down 4 bits for first pixel
-        p2 &= 0x0F;                 // Mask out low 4 bits for second pixel
-        strip.setPixelColor(pixelNum++,
-          palette[p1][0], palette[p1][1], palette[p1][2]);
-        strip.setPixelColor(pixelNum++,
-          palette[p2][0], palette[p2][1], palette[p2][2]);
+      strip.show();            // Refresh LEDs
+      delayMicroseconds(900);  // Because hardware SPI is ludicrously fast
+
+#ifdef DEBUG_TIME
+      if (first) {
+        microSecondsElapsed = micros() - microSecondsElapsed;
+        Serial.println(microSecondsElapsed, DEC);
+        first = false;
       }
-      break;
+#endif
     }
-
-    case PALETTE8: { // 8-bit (256 color) PROGMEM-palette-based image
-      uint16_t  o;
-      uint8_t   pixelNum,
-               *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS];
-      for(pixelNum = 0; pixelNum < NUM_LEDS; pixelNum++) {
-        o = pgm_read_byte(ptr++) * 3; // Offset into imagePalette
-        strip.setPixelColor(pixelNum,
-          pgm_read_byte(&imagePalette[o]),
-          pgm_read_byte(&imagePalette[o + 1]),
-          pgm_read_byte(&imagePalette[o + 2]));
-      }
-      break;
     }
-
-    case TRUECOLOR: { // 24-bit ('truecolor') image (no palette)
-      uint8_t  pixelNum, r, g, b,
-              *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS * 3];
-      for(pixelNum = 0; pixelNum < NUM_LEDS; pixelNum++) {
-        r = pgm_read_byte(ptr++);
-        g = pgm_read_byte(ptr++);
-        b = pgm_read_byte(ptr++);
-        strip.setPixelColor(pixelNum, r, g, b);
-      }
-      break;
-    }
-  }
-
-  strip.show();            // Refresh LEDs
-  delayMicroseconds(900);  // Because hardware SPI is ludicrously fast
-  delay(4);
-  if(++imageLine >= imageLines) {
-    imageLine = 0; // Next scanline, wrap around
   }
 }
 
@@ -225,4 +245,8 @@ uint16_t readVoltage() {
   }
   ADCSRA = 0; // ADC off
   return mV;
+}
+
+void magnet_detect() {
+  trigged = true;
 }
